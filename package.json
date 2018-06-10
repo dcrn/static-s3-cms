@@ -1,0 +1,26 @@
+{
+  "name": "StaticS3CMS",
+  "version": "1.0.0",
+  "description": "S3 CMS",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "parcel build src/index.html --out-dir build --public-url ./",
+    "watch": "parcel watch src/index.html --out-dir build --public-url ./",
+    "host": "parcel serve src/index.html --out-dir build --public-url ./",
+    "help": "parcel help"
+  },
+  "repository": "http://github.com/dcrn/ssscms",
+  "author": "dcrn",
+  "license": "ISC",
+  "dependencies": {
+    "aws-sdk": "^2.254.0",
+    "parcel-bundler": "^1.8.1",
+    "svelte": "^2.7.2",
+    "mustache": "^2.3.0",
+    "markdown": "^0.5.0"
+  },
+  "devDependencies": {
+    "parcel-plugin-svelte": "^1.2.1"
+  }
+}
