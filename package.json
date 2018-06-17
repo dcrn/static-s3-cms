@@ -1,7 +1,7 @@
 {
   "name": "StaticS3CMS",
   "version": "1.0.0",
-  "description": "S3 CMS",
+  "description": "Static S3-based CMS",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
@@ -10,7 +10,7 @@
     "host": "parcel serve src/index.html --out-dir build --public-url ./",
     "help": "parcel help"
   },
-  "repository": "http://github.com/dcrn/ssscms",
+  "repository": "http://github.com/dcrn/static-s3-cms",
   "author": "dcrn",
   "license": "ISC",
   "dependencies": {
