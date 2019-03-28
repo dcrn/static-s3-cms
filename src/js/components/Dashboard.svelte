@@ -111,7 +111,7 @@
         }
       },
       getFileContents(filename, callback) {
-        var failure = err => this.onError(err);
+        var self = this;
         this.get().s3.getObject(
           {
             Bucket: this.get().bucketName,
@@ -119,7 +119,7 @@
           },
           function (err, data) {
             if (err !== null) {
-              failure(err);
+              self.onError(err);
             } else {
               callback(data.Body.toString("utf-8"));
             }
@@ -127,7 +127,7 @@
         )
       },
       putFileContents(filename, data, callback) {
-        var failure = err => this.onError(err);
+        var self = this;
         this.get().s3.putObject(
           {
             Bucket: this.get().bucketName,
@@ -137,7 +137,7 @@
           },
           function (err, data) {
             if (err !== null) {
-              failure(err);
+              self.onError(err);
             } else {
               callback();
             }
@@ -152,7 +152,7 @@
           extension = "";
         }
 
-        var failure = err => this.onError(err);
+        var self = this;
         this.get().s3.listObjectsV2(
           {
             Bucket: this.get().bucketName,
@@ -160,7 +160,7 @@
           },
           function (err, data) {
             if (err !== null) {
-              failure(err);
+              self.onError(err);
             } else {
               callback(
                 data.Contents.map(meta => meta.Key)

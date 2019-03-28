@@ -108,6 +108,7 @@
               return;
             }
 
+            document.title = "Editing " + self.get().bucketName;
             self.set({errorMessage: null, s3});
           }
         );
