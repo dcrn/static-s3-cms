@@ -17,8 +17,6 @@
     "aws-sdk": "^2.254.0",
     "parcel-bundler": "^1.8.1",
     "svelte": "^2.7.2",
-    "mustache": "^2.3.0",
-    "markdown": "^0.5.0"
   },
   "devDependencies": {
     "parcel-plugin-svelte": "^1.2.1"

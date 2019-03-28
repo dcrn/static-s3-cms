@@ -1,96 +1,117 @@
-Hello world !
-<br />
-Templates:
-<ul>
-{#each pageList as page}
-  <li on:click="selectPage(page)">{page}</li>
-{/each}
-</ul>
+<div id="fileSelector">
+  <select on:change="setCurrent(this.value)">
+  <option value="">Select a file...</option>
+  {#each fileList as filename}
+    <option value="{filename}">{filename}</option>
+  {/each}
+  </select>
 
-{#if selectedPage !== null}
-  Page: {selectedPage}<br />
-  Content: <br />
-  <textarea bind:value=selectedContent></textarea><br />
-  Template: <br />
-  <textarea bind:value=selectedTemplate></textarea><br />
-  <button on:click="savePage()">Save</button><br />
-  <button on:click="selectPage(null)">Close</button><br />
-{/if}
+  {#if hasChanges}
+    <button on:click="saveCurrent()" class="btn btn-sm btn-primary">Save</button>
+  {:else}
+    <button class="btn btn-sm btn-secondary" disabled="disabled">Save</button>
+  {/if}
+
+  <span>{statusText}</span>
+</div>
+<div id="aceEditor"></div>
+
+
+<style>
+#fileSelector {
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  right: 0px;
+  height: 40px;
+  padding: 4px;
+  background-color: #EEEEEE;
+}
+#fileSelector select {
+  height: 32px;
+  min-width: 200px;
+}
+#fileSelector button {
+  height: 32px;
+}
+#aceEditor {
+  position: absolute;
+  bottom: 0px;
+  top: 40px;
+  left: 0px;
+  right: 0px;
+}
+</style>
 
 <script>
-  var markdown = require("markdown").markdown;
-  var mustache = require("mustache");
-
-  const templateExt = ".mst";
-  const contentExt = ".md";
-  const outputExt = ".html";
-  const templatePath = "template/";
-  const contentPath = "content/";
-  const outputPath = "";
-
   export default {
     oncreate() {
-      this.getPageList(pageList => this.set({pageList}));
+      var editor = ace.edit("aceEditor");
+      editor.setReadOnly(true);
+      editor.on("change", e => {
+        this.set({hasChanges: true});
+      })
+      this.set({editor, statusText: "Loading file list..."});
+
+      this.listFiles(
+        fileList => {
+          this.set({fileList, statusText: ""});
+        },
+        "",
+        ".html"
+      );
     },
     data() {
       return {
         s3: null,
         bucketName: null,
-        pageList: [],
-        selectedPage: null,
-        selectedTemplate: "",
-        selectedContent: ""
+        fileList: [],
+        currentFilename: null,
+        hasChanges: false,
+        statusText: ""
       };
     },
     methods: {
-      selectPage(selectedPage) {
+      setCurrent(filename) {
+        if (filename === "") {
+          filename = null;
+        }
+
+        this.get().editor.setReadOnly(true);
         this.set({
-          selectedPage,
-          selectedTemplate: "",
-          selectedContent: ""
+          hasChanges: false,
+          currentFilename: filename
         });
 
-        if (selectedPage !== null) {
-          this.getFile(
-            templatePath + selectedPage + templateExt,
-            selectedTemplate => this.set({selectedTemplate}),
-            ""
+        if (filename !== null) {
+          this.set({statusText: "Loading file..."});
+          this.getFileContents(
+            filename,
+            contents => {
+              this.get().editor.session.setMode("ace/mode/html");
+              this.get().editor.session.setValue(contents);
+              this.get().editor.setReadOnly(false);
+              this.set({hasChanges: false, statusText: ""});
+            }
           );
-          this.getFile(
-            contentPath + selectedPage + contentExt,
-            selectedContent => this.set({selectedContent}),
-            ""
+        } else {
+          this.get().editor.session.setMode(null);
+          this.get().editor.session.setValue("");
+        }
+      },
+      saveCurrent() {
+        const currentFilename = this.get().currentFilename;
+        if (currentFilename !== null) {
+          this.set({statusText: "Saving...", hasChanges: false});
+          this.putFileContents(
+            currentFilename,
+            this.get().editor.getValue(),
+            () => this.set({statusText: ""})
           );
         }
       },
-      savePage() {
-        const selectedPage = this.get().selectedPage;
-        const selectedTemplate = this.get().selectedTemplate;
-        const selectedContent = this.get().selectedContent;
-        if (selectedPage !== null) {
-          console.log("Saving file " + selectedPage);
-          this.putFile(
-            templatePath + selectedPage + templateExt,
-            selectedTemplate
-          );
-          this.putFile(
-            contentPath + selectedPage + contentExt,
-            selectedContent
-          );
-
-          const output = mustache.render(
-            selectedTemplate,
-            {content: markdown.toHTML(selectedContent)}
-          );
-
-          this.putFile(
-            outputPath + selectedPage + outputExt,
-            output,
-            "text/html"
-          );
-        }
-      },
-      getFile(filename, callback, defaultBody) {
+      getFileContents(filename, callback) {
+        var failure = err => this.onError(err);
         this.get().s3.getObject(
           {
             Bucket: this.get().bucketName,
@@ -98,62 +119,62 @@ Templates:
           },
           function (err, data) {
             if (err !== null) {
-              if (err.code == "NoSuchKey") {
-                callback(defaultBody);
-                return;
-              }
-
-              console.log("getFile("+filename+") error: ");
-              console.log(err);
+              failure(err);
             } else {
               callback(data.Body.toString("utf-8"));
             }
           }
         )
       },
-      putFile(filename, data, contentType) {
-        if (typeof contentType === undefined) {
-          contentType = "text/plain";
-        }
-
+      putFileContents(filename, data, callback) {
+        var failure = err => this.onError(err);
         this.get().s3.putObject(
           {
             Bucket: this.get().bucketName,
             Key: filename,
             Body: data,
-            ContentType: contentType
+            ContentType: "text/html"
           },
           function (err, data) {
             if (err !== null) {
-              console.log("putFile("+filename+") error: ");
-              console.log(err);
+              failure(err);
+            } else {
+              callback();
             }
           }
         )
       },
-      getPageList(callback) {
+      listFiles(callback, prefix, extension) {
+        if (typeof prefix === "undefined") {
+          prefix = "";
+        }
+        if (typeof extension === "undefined") {
+          extension = "";
+        }
+
+        var failure = err => this.onError(err);
         this.get().s3.listObjectsV2(
           {
             Bucket: this.get().bucketName,
-            Prefix: templatePath
+            Prefix: prefix
           },
           function (err, data) {
             if (err !== null) {
-              console.log("S3:listObjects error: ");
-              console.log(err);
+              failure(err);
             } else {
               callback(
-                data.Contents
-                  .map(meta => meta.Key)
-                  .filter(key => key.endsWith(templateExt))
-                  .map(key => key.substring(
-                    templatePath.length,
-                    key.length - templateExt.length
-                  ))
+                data.Contents.map(meta => meta.Key)
+                  .filter(key => !key.endsWith("/"))
+                  .filter(key => key.endsWith(extension))
+                  .map(key => key.substring(prefix.length))
               );
             }
           }
         );
+      },
+      onError(err) {
+        this.set({statusText: "Error: " + err});
+        this.setCurrent("");
       }
     }
   }
